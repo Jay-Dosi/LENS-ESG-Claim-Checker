@@ -20,6 +20,16 @@ except Exception:
     pass
 
 from chromadb.config import Settings as ChromaSettings
+from chromadb.api.types import Documents, EmbeddingFunction, Embeddings
+
+class DummyEmbeddingFunction(EmbeddingFunction):
+    """
+    Prevents ChromaDB from downloading and loading the heavy 80MB ONNX model.
+    Since we only use Chroma as a key-value store, we don't need real embeddings.
+    This saves ~300MB of RAM and prevents Render OOM crashes.
+    """
+    def __call__(self, input: Documents) -> Embeddings:
+        return [[0.0] * 384 for _ in input]
 
 logger = logging.getLogger(__name__)
 
@@ -126,12 +136,13 @@ class ChromaDBStorage:
     def _init_collections(self):
         """Initialize ChromaDB collections"""
         try:
-            self.documents_collection = self.client.get_or_create_collection("documents")
-            self.metadata_collection = self.client.get_or_create_collection("metadata")
-            self.claims_collection = self.client.get_or_create_collection("claims")
-            self.evidence_collection = self.client.get_or_create_collection("evidence")
-            self.reports_collection = self.client.get_or_create_collection("reports")
-            logger.info("ChromaDB collections initialized")
+            dummy_ef = DummyEmbeddingFunction()
+            self.documents_collection = self.client.get_or_create_collection("documents", embedding_function=dummy_ef)
+            self.metadata_collection = self.client.get_or_create_collection("metadata", embedding_function=dummy_ef)
+            self.claims_collection = self.client.get_or_create_collection("claims", embedding_function=dummy_ef)
+            self.evidence_collection = self.client.get_or_create_collection("evidence", embedding_function=dummy_ef)
+            self.reports_collection = self.client.get_or_create_collection("reports", embedding_function=dummy_ef)
+            logger.info("ChromaDB collections initialized with Dummy Embeddings (RAM saved)")
         except Exception as e:
             logger.error(f"Error initializing collections: {e}")
             raise

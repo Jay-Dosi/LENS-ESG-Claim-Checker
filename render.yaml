@@ -3,7 +3,7 @@ services:
     name: lens-backend
     env: python
     plan: free
-    buildCommand: "cd backend && pip install -r requirements.txt && pip install https://github.com/explosion/spacy-models/releases/download/en_core_web_md-3.7.1/en_core_web_md-3.7.1.tar.gz"
+    buildCommand: "cd backend && pip install -r requirements.txt && pip install https://github.com/explosion/spacy-models/releases/download/en_core_web_sm-3.7.1/en_core_web_sm-3.7.1.tar.gz"
     startCommand: "cd backend && uvicorn app.main:app --host 0.0.0.0 --port $PORT"
     envVars:
       - key: COHERE_API_KEY

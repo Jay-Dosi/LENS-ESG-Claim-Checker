@@ -17,7 +17,7 @@ class NLUService:
     
     def __init__(self):
         """Initialize spaCy NLP model"""
-        model_name = "en_core_web_md"
+        model_name = "en_core_web_sm"
         try:
             self.nlp = spacy.load(model_name)
             logger.info(f"Loaded spaCy model: {model_name}")
