@@ -1,0 +1,34 @@
+services:
+  - type: web
+    name: lens-backend
+    env: python
+    plan: free
+    buildCommand: "cd backend && pip install -r requirements.txt && python -m spacy download en_core_web_md"
+    startCommand: "cd backend && uvicorn app.main:app --host 0.0.0.0 --port $PORT"
+    envVars:
+      - key: GROQ_API_KEY
+        sync: false
+      - key: OPENWEATHERMAP_API_KEY
+        sync: false
+      - key: CORS_ORIGINS
+        value: "*"
+      - key: STORAGE_MODE
+        value: "memory"
+      - key: LOG_LEVEL
+        value: "INFO"
+      - key: PYTHON_VERSION
+        value: "3.11.0"
+        
+  - type: web
+    name: lens-frontend
+    env: static
+    buildCommand: "cd frontend && npm install && npm run build"
+    staticPublishPath: "./frontend/dist"
+    envVars:
+      - key: VITE_API_URL
+        fromService:
+          type: web
+          name: lens-backend
+          envVarKey: RENDER_EXTERNAL_URL
+      - key: NODE_VERSION
+        value: "20.11.0"
