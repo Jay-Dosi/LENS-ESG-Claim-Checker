@@ -5,8 +5,8 @@ python-multipart==0.0.6
 pydantic==2.5.3
 pydantic-settings==2.1.0
 
-# LLM - Google Gemini API via LangChain
-langchain-google-genai
+# LLM - Cohere API via LangChain
+langchain-cohere
 langchain-core==0.1.52
 
 # NLP - spaCy for local entity extraction
@@ -30,3 +30,4 @@ feedparser==6.0.11
 # Utilities
 python-dotenv==1.0.0
 python-json-logger==2.0.7
+PyYAML==6.0.1

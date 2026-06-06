@@ -30,7 +30,7 @@ function App() {
       console.log('Upload complete:', uploadResponse.document_id)
       
       // Stage 2 & 3: Extract claims
-      setLoadingMessage('Extracting ESG claims with Groq AI (Llama 3)...')
+      setLoadingMessage('Extracting ESG claims with AI...')
       const claimsResponse = await extractClaims(uploadResponse.document_id)
       setClaims(claimsResponse.claims)
       console.log('Claims extracted:', claimsResponse.claims.length)
@@ -123,7 +123,7 @@ function App() {
               <span className="text-blue-400">🔍</span>
               ESG Claim Verification Assistant
             </h1>
-            <p className="text-sm text-gray-400">ESG Verification • Powered by Groq & spaCy</p>
+            <p className="text-sm text-gray-400">ESG Verification • Powered by AI & spaCy</p>
           </div>
           
           {riskScore && (

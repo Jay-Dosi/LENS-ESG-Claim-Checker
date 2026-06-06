@@ -17,9 +17,9 @@ class Settings(BaseSettings):
         extra="ignore"
     )
     
-    # Gemini Configuration
-    gemini_api_key: str
-    gemini_model: str = "gemini-1.5-flash"
+    # Cohere Configuration
+    cohere_api_key: str
+    cohere_model: str = "command-a-03-2025"
     
     # Storage Configuration - ChromaDB (Stateless)
     storage_mode: Literal["memory", "persistent"] = "memory"  # memory = stateless, persistent = local disk
@@ -65,8 +65,8 @@ class Settings(BaseSettings):
     
     def validate_llm_config(self) -> None:
         """Validate LLM configuration"""
-        if not self.gemini_api_key:
-            raise ValueError("GEMINI_API_KEY is required")
+        if not self.cohere_api_key:
+            raise ValueError("COHERE_API_KEY is required")
 
 
 # Global settings instance

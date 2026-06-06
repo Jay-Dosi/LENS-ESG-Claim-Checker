@@ -1,12 +1,12 @@
 """
 LLM Service - Stages 3 & 7
-Handles claim extraction and explanation generation using Groq API via LangChain
+Handles claim extraction and explanation generation using Cohere API via LangChain
 """
 import json
 import logging
 import uuid
 from typing import List, Dict, Any, Optional
-from langchain_google_genai import ChatGoogleGenerativeAI
+from langchain_cohere import ChatCohere
 from langchain_core.prompts import PromptTemplate
 from app.config import settings
 from app.models.schemas import Claim
@@ -15,9 +15,9 @@ logger = logging.getLogger(__name__)
 
 
 class LLMService:
-    """LangChain client for Google Gemini LLM inference"""
+    """LangChain client for Cohere LLM inference"""
     
-    # Extraction prompt template for Llama 3
+    # Extraction prompt template for Cohere
     EXTRACTION_PROMPT = """You are an ESG analyst extracting carbon and emissions claims from corporate sustainability reports.
 
 Extract ONLY claims related to:
@@ -45,7 +45,7 @@ TEXT TO ANALYZE:
 {text}
 """
 
-    # Explanation prompt template for Llama 3
+    # Explanation prompt template for Cohere
     EXPLANATION_PROMPT = """You are an ESG verification analyst. Based on the claims and evidence below, write a concise 4-bullet summary.
 
 You must deeply analyze all provided evidence. Do NOT just look at keywords. Read the full text and descriptions of the news articles, and carefully evaluate the map and air quality (AQI) reports.
@@ -68,18 +68,20 @@ EVIDENCE:
 Write exactly 4 bullet points:"""
 
     def __init__(self):
-        """Initialize LangChain ChatGroq model"""
-        # Create the ChatGoogleGenerativeAI instances for different temperatures
-        self.extraction_llm = ChatGoogleGenerativeAI(
-            google_api_key=settings.gemini_api_key,
-            model=settings.gemini_model,
-            temperature=0.1
+        """Initialize LangChain Cohere model"""
+        # Create the ChatCohere instances for different temperatures
+        self.extraction_llm = ChatCohere(
+            cohere_api_key=settings.cohere_api_key,
+            model=settings.cohere_model,
+            temperature=0.1,
+            max_tokens=4000
         )
         
-        self.explanation_llm = ChatGoogleGenerativeAI(
-            google_api_key=settings.gemini_api_key,
-            model=settings.gemini_model,
-            temperature=0.3
+        self.explanation_llm = ChatCohere(
+            cohere_api_key=settings.cohere_api_key,
+            model=settings.cohere_model,
+            temperature=0.3,
+            max_tokens=4000
         )
         
         # Setup prompt templates
@@ -90,7 +92,7 @@ Write exactly 4 bullet points:"""
         self.extraction_chain = self.extraction_template | self.extraction_llm
         self.explanation_chain = self.explanation_template | self.explanation_llm
         
-        logger.info(f"Initialized LangChain Gemini service with model {settings.gemini_model}")
+        logger.info(f"Initialized LangChain Cohere service with model {settings.cohere_model}")
     
     def extract_claims_from_chunk(
         self,
@@ -99,7 +101,7 @@ Write exactly 4 bullet points:"""
         document_id: str
     ) -> List[Claim]:
         """
-        Extract ESG claims from a text chunk using Gemini via LangChain
+        Extract ESG claims from a text chunk using Cohere via LangChain
         
         Args:
             chunk_text: Text to analyze
@@ -170,7 +172,7 @@ Write exactly 4 bullet points:"""
         evidence: List[Dict[str, Any]]
     ) -> str:
         """
-        Generate natural language explanation using Gemini via LangChain
+        Generate natural language explanation using Cohere via LangChain
         
         Args:
             claims: List of claim dictionaries
@@ -185,7 +187,7 @@ Write exactly 4 bullet points:"""
             safe_claims = copy.deepcopy(claims)
             safe_evidence = copy.deepcopy(evidence)
             
-            # Light truncation just as a final safeguard (Llama-3.3-70b has 30k tokens!)
+            # Light truncation just as a final safeguard
             for claim in safe_claims:
                 if "claim_text" in claim and isinstance(claim["claim_text"], str) and len(claim["claim_text"]) > 2000:
                     claim["claim_text"] = claim["claim_text"][:2000] + "...[TRUNCATED]"
@@ -224,45 +226,71 @@ Write exactly 4 bullet points:"""
     def _parse_json_response(self, response: str) -> Any:
         """
         Parse JSON from model response, handling common formatting issues
-        
-        Args:
-            response: Raw model output
-            
-        Returns:
-            Parsed JSON array or object
         """
+        import re
+        import yaml
+        
+        def clean_json(s: str) -> str:
+            # Remove trailing commas
+            s = re.sub(r',\s*\}', '}', s)
+            s = re.sub(r',\s*\]', ']', s)
+            return s
+            
+        def try_yaml_fallback(s: str) -> Any:
+            """Fallback to YAML parser which handles malformed JSON perfectly"""
+            try:
+                return yaml.safe_load(s)
+            except Exception:
+                return None
+            
         try:
-            # Try direct parsing first
-            return json.loads(response)
+            return json.loads(clean_json(response))
         except json.JSONDecodeError:
-            # Try to extract JSON from markdown code blocks
-            if "```json" in response:
-                json_start = response.find("```json") + 7
-                json_end = response.find("```", json_start)
-                json_str = response[json_start:json_end].strip()
-                return json.loads(json_str)
-            elif "```" in response:
-                json_start = response.find("```") + 3
-                json_end = response.find("```", json_start)
-                json_str = response[json_start:json_end].strip()
-                return json.loads(json_str)
-            else:
-                # Try to find JSON array in the response
+            try:
+                # Try YAML fallback first on the raw response
+                yaml_result = try_yaml_fallback(response)
+                if yaml_result is not None and isinstance(yaml_result, (dict, list)):
+                    return yaml_result
+                    
+                if "```json" in response:
+                    json_start = response.find("```json") + 7
+                    json_end = response.find("```", json_start)
+                    content = response[json_start:json_end].strip()
+                    try:
+                        return json.loads(clean_json(content))
+                    except:
+                        return try_yaml_fallback(content) or []
+                elif "```" in response:
+                    json_start = response.find("```") + 3
+                    json_end = response.find("```", json_start)
+                    content = response[json_start:json_end].strip()
+                    try:
+                        return json.loads(clean_json(content))
+                    except:
+                        return try_yaml_fallback(content) or []
+                
+                # Try to find JSON array or object
                 start_idx = response.find("[")
                 end_idx = response.rfind("]") + 1
                 if start_idx != -1 and end_idx > start_idx:
-                    json_str = response[start_idx:end_idx]
-                    return json.loads(json_str)
-                else:
-                    # Try to find JSON object
-                    start_idx = response.find("{")
-                    end_idx = response.rfind("}") + 1
-                    if start_idx != -1 and end_idx > start_idx:
-                        json_str = response[start_idx:end_idx]
-                        return json.loads(json_str)
+                    content = response[start_idx:end_idx]
+                    try:
+                        return json.loads(clean_json(content))
+                    except:
+                        return try_yaml_fallback(content) or []
                     
-                    logger.warning("Could not parse JSON from response")
-                    return []
+                start_idx = response.find("{")
+                end_idx = response.rfind("}") + 1
+                if start_idx != -1 and end_idx > start_idx:
+                    content = response[start_idx:end_idx]
+                    try:
+                        return json.loads(clean_json(content))
+                    except:
+                        return try_yaml_fallback(content) or []
+            except Exception as e:
+                logger.warning(f"Could not parse JSON from response: {e}")
+                
+            return []
 
 
 # Singleton instance
