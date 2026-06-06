@@ -74,14 +74,16 @@ Write exactly 4 bullet points:"""
             cohere_api_key=settings.cohere_api_key,
             model=settings.cohere_model,
             temperature=0.1,
-            max_tokens=4000
+            max_tokens=4000,
+            safety_mode="NONE"
         )
         
         self.explanation_llm = ChatCohere(
             cohere_api_key=settings.cohere_api_key,
             model=settings.cohere_model,
             temperature=0.3,
-            max_tokens=4000
+            max_tokens=4000,
+            safety_mode="NONE"
         )
         
         # Setup prompt templates
