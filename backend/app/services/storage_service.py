@@ -367,34 +367,12 @@ class StorageService:
     
     def upload_file(self, session_id: str, file_path: str, object_key: str) -> str:
         """
-        Upload a file to storage
-        
-        Args:
-            session_id: Session identifier
-            file_path: Local path to the file
-            object_key: Key (identifier) for storage
-            
-        Returns:
-            Storage key
+        Upload a file to storage.
+        Since the file is already saved to the local disk, we don't need to load it into ChromaDB
+        (which causes huge memory spikes of 100MB+ for large PDFs).
         """
         try:
-            # Read file content
-            with open(file_path, 'rb') as f:
-                file_content = f.read()
-            
-            # Extract filename
-            filename = os.path.basename(file_path)
-            
-            # Store in ChromaDB
-            document_id = object_key.replace('/', '_')
-            self.storage.store_file(
-                session_id=session_id,
-                document_id=document_id,
-                file_content=file_content,
-                filename=filename,
-                metadata={"object_key": object_key}
-            )
-            
+            logger.info(f"File stored locally at: {file_path}")
             return object_key
             
         except Exception as e:
@@ -403,34 +381,18 @@ class StorageService:
     
     def download_file(self, object_key: str, local_path: str) -> str:
         """
-        Download a file from storage
-        
-        Args:
-            object_key: Key (identifier) in storage
-            local_path: Local path to save the file
-            
-        Returns:
-            Local file path
+        Download a file from storage.
+        Since the file is already on the local disk, we just return the path.
         """
         try:
-            document_id = object_key.replace('/', '_')
-            file_content = self.storage.get_file(document_id)
-            
-            if file_content is None:
+            if not os.path.exists(local_path):
                 raise FileNotFoundError(f"File not found: {object_key}")
             
-            # Create directory if needed
-            os.makedirs(os.path.dirname(local_path), exist_ok=True)
-            
-            # Write file
-            with open(local_path, 'wb') as f:
-                f.write(file_content)
-            
-            logger.info(f"Downloaded file to: {local_path}")
+            logger.info(f"File accessed from local disk: {local_path}")
             return local_path
             
         except Exception as e:
-            logger.error(f"Error downloading file: {e}")
+            logger.error(f"Error accessing file: {e}")
             raise
     
     def upload_json(self, session_id: str, data: Dict[Any, Any], object_key: str) -> str:
